@@ -6,7 +6,6 @@
 ## note, if >1 eat_n follow a eat_f, the end of the last eat_n will be considered the end of the episode
 
 # Script written by Bari Fuchs (with help from J.VonFricken) on July 25 2020.
-# Last modified on July 26 2020
 
 #Make a list of the text files in 
 import os
@@ -18,8 +17,10 @@ path = "/Users/barifuchs/Box/Bari_files/00_PennState/Bout_Project/Data/Annotatio
 #path = "/Users/baf44/Box/Bari_files/00_PennState/Bout_Project/Data/Annotation/"
 filenames = os.listdir(path)
 
-for filename in filenames: # for every file in the directory
-#for filename in ['AUR0029_visit1.csv']:
+
+#for filename in filenames: # for every file in the directory
+for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in timecolumn
+#for filename in ['AUR0029_visit1.csv']: #file with no missing data or drinks
     prefix = filename.split('.')[0] # get prefix of file
     print(prefix)
     if 'AUR' in filename: 
@@ -82,22 +83,36 @@ for filename in filenames: # for every file in the directory
             if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat_n":
                 data_snack_fn.append(sampledict)
 
+    #### Dealing with '?' in time column:
+    # If prev_end_time == ?, cant calculate IBI
+    # If start_time == ?, cant calculate IBI
+    
+    
     # Calculate IBI and InterEatingInterval_f for Meal
         i = 0
         for i in range(len(data_meal_fonly)):
             if i == 0:
                 continue
+            
             prev_start_time_str = data_meal_fonly[i-1]["start_time"]
-            prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
-
             prev_end_time_str = data_meal_fonly[i-1]["end_time"]
-            prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
-
             start_time_str = data_meal_fonly[i]["start_time"]
-            start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
 
-            data_meal_fonly[i]["IBI"] = (start_time_obj - prev_start_time_obj).total_seconds()
-            data_meal_fonly[i]["InterEatInt_f"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
+            if prev_start_time_str == '?' or start_time_str == "?":
+                data_meal_fonly[i]["IBI"] = 'NA'
+
+            if prev_end_time_str == '?' or start_time_str == "?":
+                data_meal_fonly[i]["InterEatInt_f"] = 'NA'
+
+            if prev_start_time_str != '?' and start_time_str != "?":
+                prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
+                start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                data_meal_fonly[i]["IBI"] = (start_time_obj - prev_start_time_obj).total_seconds()
+
+            if prev_end_time_str != '?' and start_time_str != "?":
+                start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
+                data_meal_fonly[i]["InterEatInt_f"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
 
             #print(data_meal_fonly[i])
             i = i + 1
@@ -114,17 +129,26 @@ for filename in filenames: # for every file in the directory
             if i == 0:
                 continue
             prev_start_time_str = data_snack_fonly[i-1]["start_time"]
-            prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
-
             prev_end_time_str = data_snack_fonly[i-1]["end_time"]
-            prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
-
             start_time_str = data_snack_fonly[i]["start_time"]
-            start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
 
-            data_snack_fonly[i]["IBI"] = (start_time_obj - prev_start_time_obj).total_seconds()
-            data_snack_fonly[i]["InterEatInt_f"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
-            #print(data_snack_fonly[i])
+            if prev_start_time_str == '?' or start_time_str == "?":
+                data_snack_fonly[i]["IBI"] = 'NA'
+
+            if prev_end_time_str == '?' or start_time_str == "?":
+                data_snack_fonly[i]["InterEatInt_f"] = 'NA'
+
+            if prev_start_time_str != '?' and start_time_str != "?":
+                prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
+                start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                data_snack_fonly[i]["IBI"] = (start_time_obj - prev_start_time_obj).total_seconds()
+
+            if prev_end_time_str != '?' and start_time_str != "?":
+                start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
+                data_snack_fonly[i]["InterEatInt_f"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
+
+           #print(data_snack_fonly[i])
             i = i + 1
 
         for dsf in data_snack_fonly:
