@@ -175,7 +175,7 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
 
             if data_meal_fn[i]["Annotation"] == "eat_f" :
                 data_meal_fn[i]["InterEatInt_n"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
-            
+           hh 
             if data_meal_fn[i]["Annotation"] == "eat_n" :
                 data_meal_fn[i]["InterEatInt_n"] = "NA"
                 
