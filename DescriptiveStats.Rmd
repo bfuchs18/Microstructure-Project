@@ -1,0 +1,263 @@
+---
+title: "Microstructure-descriptives"
+author: "Bari Fuchs"
+date: "8/6/2020"
+output: word_document
+editor_options: 
+  chunk_output_type: console
+---
+
+This file is being updated following an OS upgrade to 10.15, which introduced issues with code
+
+```{r data org, include=FALSE}
+library(plyr)
+library(dplyr)
+library(readr)
+library(hms)
+#install.packages("chron")
+library(chron)
+
+#### import data ####
+#setwd("~/Box/Bari_files/00_PennState/Bout_Project/Data/Intervals")
+setwd("~/Box/0-Bari_files/00_PennState/Bout_Project/Data/Intervals")
+#myfiles = list.files(pattern="*.csv", full.names=TRUE)
+myfiles = list.files(pattern="*.csv")
+list.files()
+dat_csv = ldply(myfiles, read_csv)
+
+#### set class of variables ####
+dat_csv$IBI <- as.numeric(dat_csv$IBI)
+dat_csv$InterEatInt_f <- as.numeric(dat_csv$InterEatInt_f)
+dat_csv$InterEatInt_n <- as.numeric(dat_csv$InterEatInt_n)
+dat_csv$chewtimes <- as.numeric(dat_csv$chewtimes)
+dat_csv$id <- as.numeric(dat_csv$id)
+
+#### Recode mis-coded variables ####
+# Note: For AUR0076, "eat_f" is coded as "eat" ; "eat_n" is coded as "other chew"
+unique(dat_csv$Annotation)
+dat_csv$Annotation[dat_csv$Annotation == "eat"] <- "eat_f"
+dat_csv$Annotation[dat_csv$Annotation == "drinK"] <- "drink"
+dat_csv$Annotation[dat_csv$Annotation == "other chew"] <- "eat_n"
+
+
+#### subset data ####
+meals <- subset(dat_csv, Paradigm == "Meal") # This dateframe excludes drinks
+snacks <- subset(dat_csv, Paradigm == "Snack") # This dateframe excludes drinks
+
+```
+
+```{r Calculate variables, include=FALSE}
+
+## TO DO: Manually calculate chew time and meal dur for someone to make sure calculations are correct
+
+## Note: meal time here is calculated from start of first bite, to end of last bite. DRINKS ARE IGNORED
+## Note: chew_per_new_bite is the average num of chew/ *new* bite (eat_f annotation) 
+## Note: chew_per_bite is the average num of chews/bite, when including all chews between 1 bite and the next
+
+# create empty dataframe with 1 row per meal
+meals_means <- data.frame(matrix("", nrow = 30))[-1]
+
+ParIDs <- unique(meals$parid)
+i = 1
+for (ID in ParIDs) {
+  subj_meals <- meals[meals$parid==ID,] #subset participant data
+  nummeal <- unique(subj_meals$session) #identify number of meals
+  for (meal in nummeal) {
+    # subset single meal session
+    subj_meal <- subj_meals[subj_meals$session==meal,]
+    # identify start of first bite
+    f <- first(subj_meal$id) ## Note: the meals/subj_meal dataframe does not contain drink events. Using first() instead of id=1 to identify the first bite because if a meal started with a drink, id=1 would not be the first bite (and would not be included in this dataframe))
+    mealstart <- strptime((subj_meal$start_time[subj_meal$id==f]), format = "%H:%M:%S")
+    # identify end of last bite
+    l <- last(subj_meal$id)
+    mealend <- strptime((subj_meal$end_time[subj_meal$id==l]), format = "%H:%M:%S")
+    # calculate meal duration
+    mealdur_min <- mealend-mealstart
+    
+    # calculate average # of chews per bite (eat_f and eat_n included in chew count); add to database 
+    #subj_meal_f <- subset(subj_meal, Annotation == "eat_f")
+    number_bites <- length(which(subj_meal$Annotation == "eat_f"))
+    chew_per_bite <- sum(subj_meal$chewtimes) / number_bites
+
+    # calculate average # of chews in a "new" bite (eat_f only); add to database 
+    subj_meal_f <- subset(subj_meal, Annotation == "eat_f") # creates database with only new bites (eat_f)
+    chew_per_new_bite <- mean(subj_meal_f$chewtimes, na.rm=T)
+    
+    # Add variables to database
+    meals_means$parid[i] <- ID
+    meals_means$session[i] <- meal
+    meals_means$mealdur_min[i] <- mealdur_min
+    meals_means$chew_per_bite[i] <- chew_per_bite
+    meals_means$chew_per_new_bite[i] <- chew_per_new_bite
+    
+    i = i + 1
+  }
+}
+
+```
+
+```{r bar graphs, include=FALSE}
+library(ggplot2)
+
+meals_means$session <- as.character(meals_means$session)
+
+#### meal duration #### 
+ggplot(meals_means, aes(fill=session, y=mealdur_min, x=parid)) + 
+    geom_bar(position="dodge", stat="identity")
+
+#### average chews per bite #### 
+ggplot(meals_means, aes(fill=session, y=chew_per_bite, x=parid)) + 
+    geom_bar(position="dodge", stat="identity")
+
+
+```
+
+```{r histograms of withinmeal variables}
+library(ggplot2)
+
+
+#### IBI by parid by visit ####
+ggplot(meals,aes(x = IBI)) + geom_histogram(bins = 15) + facet_grid(parid~session)
+
+ggplot(snacks,aes(x = IBI)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 100))
+
+#### InterEatInt_n by parid by visit ####
+ggplot(meals,aes(x = InterEatInt_n)) + geom_histogram(bins = 15) + facet_grid(parid~session)
+
+ggplot(snacks,aes(x = InterEatInt_n)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 100))
+
+#### InterEatInt_f by parid by visit ####
+ggplot(meals,aes(x = InterEatInt_f)) + geom_histogram(bins = 15) + facet_grid(parid~session)
+
+ggplot(snacks,aes(x = InterEatInt_f)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 100))
+
+#### Chew Times by parid by visit ####
+# only assess # of chews for new bites (category = 0)
+ggplot(meals[which(meals$category==0),],aes(x = chewtimes)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 80))
+
+ggplot(snacks[which(snacks$category==0),],aes(x = chewtimes)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 80))
+
+```
+
+Can you compare distributions (e.g. the distributions of the IBIs)?
+Why? do the distributions differ across meal types? within a person? between people?
+
+Kolmogorov–Smirnov test?
+This is because, the K-S statistic quantifies the greatest distance between the empirical distribution functions of two samples and tests if the observed distance is greater than expected.
+https://chemicalstatistician.wordpress.com/2013/06/25/exploratory-data-analysis-2-ways-of-plotting-empirical-cumulative-distribution-functions-in-r/ 
+
+```{r compare distributions}
+# QUESTION: Do the distributions of IBIs differ between meal types (meal vs. snack)? within a person? between people?
+# H1: Distributions of IBIs will differ between meals and snacks
+# H2: For the same meal type, distributions of IBIs will be similar (not differ) within a person
+# H3: For the same meal type, distributions of IBIs will vary between people, but not as much as between meals vs. snacks
+
+# Kolmogorov–Smirnov test: quantifies the greatest distance between the empirical distribution functions of two samples and tests if the observed distance is greater than expected. The KS test finds the maximum distance between the ECDFs. More importantly, the test requires evaluating whether the distance is large enough to claim that the two samples do not belong to each other.
+# https://towardsdatascience.com/how-to-compare-two-distributions-in-practice-8c676904a285
+
+## Do snack-IBI and meal-IBI come from the same distribution? (H1)
+ks.test(meals$IBI, snacks$IBI) #not sure if this is valid bc there are repeated measures within a meal and subject?
+ks.test(meals[which(meals$session==1),]$IBI, snacks[which(meals$session==1),]$IBI) #only using session 1 data for each person.
+
+
+```
+
+ICC
+To do: statistically examine between and within subject variability
+
+(1) For "between-meal" variables (i.e. 1 value per meal): assess variability between meals for each subject (e.g. variability between meal 1 and meal 2), and variability between subjects
+
+(2) For "within-meal" variables (i.e. repeat values per meal): assess variability across ALL meals for each subject (e.g. ignoring session), and between subjects [is this valid???]
+
+```{r ICC "within meal" variables, ignoring session}
+library(lme4)
+# ICC is the % of total variability that is between person
+# 1-ICC is the % of total variability that is within person
+
+
+#### Chewtimes ####
+# meals
+emptymodel <- lmer(formula = chewtimes ~ 1 + (1|parid), 
+              data=meals,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.1089099
+
+# snacks
+emptymodel <- lmer(formula = chewtimes ~ 1 + (1|parid), 
+              data=snacks,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.08835908
+
+#### IBI ####
+# meals
+emptymodel <- lmer(formula = IBI ~ 1 + (1|parid), 
+              data=meals,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.07767203
+
+# snacks
+#emptymodel <- lmer(formula = IBI ~ 1 + (1|parid), 
+#              data=snacks,
+#              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between 
+
+
+#### InterEatInt_n ####
+# meals
+emptymodel <- lmer(formula = InterEatInt_n ~ 1 + (1|parid), 
+              data=meals,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.04215449 ... 4% of the variance is accounted for by between-person differences
+
+# snacks
+#emptymodel <- lmer(formula = InterEatInt_f ~ 1 + (1|parid), 
+#              data=snacks,
+#              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between 
+```
+
+
+```{r ICC "between meal" variables}
+library(lme4)
+
+#### chewavg ####
+emptymodel <- lmer(formula = chewavg ~ 1 + (1|parid), 
+              data=meals_means,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.5680399
+
+#### meal duration ####
+emptymodel <- lmer(formula = mealdur_min ~ 1 + (1|parid), 
+              data=meals_means,
+              na.action=na.exclude)
+RandomEffects <- as.data.frame(VarCorr(emptymodel))
+#ICC = intercept variance / total variance
+ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
+ICC_between #0.6302614
+```
+
+```{r meal duration and calorie correlations }
+
+
+```
