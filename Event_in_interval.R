@@ -3,6 +3,7 @@
 # Input files can be generated using Gen_files_for_EventInt.R
 
 library(plyr)
+library(dplyr)
 
 #### Import files ####
 # set directory
@@ -12,6 +13,9 @@ setwd(file.path(basedir,"Data/Split/BitesOnly/"))
 # Load files
 file_names = list.files(pattern="*meal*", full.names = TRUE)
 files = lapply(file_names, read.csv, header = TRUE)
+
+# Load 1 file for testing script
+AUR0029.1 <- read.csv("AUR0029.1_meal_bitesonly.csv", stringsAsFactors = FALSE)
 
 #### Define function for defining event (bite) occurance ####
 # Function will: 
@@ -41,14 +45,24 @@ event_in_interval <- function(data, interval) {
   Interval.df$upperthresh <- (Interval.df$IntNum*Intdur)
   
   # Make variable to indicate occurance of event
-  Interval.df$Event = NA
+  Interval.df$EventOccur = NA
+  
+  # Make variable to indicate event count
+  Interval.df$EventCount = NA
 
   # For each interval, Event = TRUE if there is any event in Input_clean that occured between upper and lower threshold for that interval
   Intnums = unique(Interval.df$IntNum)
   for (Int in Intnums) {
     upperthresh = (Interval.df$upperthresh[Interval.df$IntNum == Int])
     lowerthresh = (Interval.df$lowerthresh[Interval.df$IntNum == Int])
-    Interval.df$Event[Interval.df$IntNum == Int] = (any(data$StartTime_seconds_adjusted >= lowerthresh & data$StartTime_seconds_adjusted < upperthresh))
+    Interval.df$EventOccur[Interval.df$IntNum == Int] = (any(data$StartTime_seconds_adjusted >= lowerthresh & data$StartTime_seconds_adjusted < upperthresh))
+    eventcount = 0
+    for (eventnum in 1:nrow(data)) {
+      if (isTRUE(between(data$StartTime_seconds_adjusted[eventnum], lowerthresh, upperthresh))) {
+        eventcount = eventcount + 1
+      }
+    }
+    Interval.df$EventCount[Interval.df$IntNum == Int] = eventcount
   }
   return(Interval.df)
 }
@@ -63,6 +77,7 @@ for (file in files) {
   else if (nrow(file) > 1) {
     session <- (file$session[1])
     parid <- print(file$parid[1], max.levels = 0)
-    assign(paste(parid,session,"EventInInt",sep = "_"), event_in_interval(file, 4))
+    interval = 4
+    assign(paste(parid,session,"EventInInt",interval,sep = "_"), event_in_interval(file, interval))
   }
 }
