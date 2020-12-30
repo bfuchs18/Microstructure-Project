@@ -69,15 +69,36 @@ event_in_interval <- function(data, interval) {
 
 #### Apply function; output "EventInInt" dataframes for each meal ####
 
+# Set desired intervals
+intlist <- list(2, 4)
 
-for (file in files) {
-  if (nrow(file) == 0) {
-    print("no data")
-  }
-  else if (nrow(file) > 1) {
-    session <- (file$session[1])
-    parid <- print(file$parid[1], max.levels = 0)
-    interval = 4
-    assign(paste(parid,session,"EventInInt",interval,sep = "_"), event_in_interval(file, interval))
-  }
+for (interval in intlist) { 
+  # Make temporary empty dataframe that all data will be added to
+  temp <- data.frame(matrix(ncol = 7, nrow = 0))
+    for (file in files) {
+      
+      if (nrow(file) == 0) {
+        print("no data")
+      }
+      
+      else if (nrow(file) > 1) {
+        sesnum <- (file$session[1])
+        parid <- print(file$parid[1], max.levels = 0)
+        output <- event_in_interval(file, interval)
+        output$ParID <- parid
+        output$session <- sesnum
+        
+        ## Make separate dataframe for meal/participant data
+        #assign(paste(parid,sesnum,"EventInInt",interval,sep = "_"), event_in_interval(file, interval))
+        
+        # Add participant's data to compiled dataframe
+        temp <- rbind(temp, output)
+      }
+    }
+  
+  # Modify name of temporary dataframe
+  assign(paste0("Event_in_interval_compiled_", interval), temp)
+  rm(temp)
+  
 }
+
