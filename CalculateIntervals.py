@@ -1,6 +1,6 @@
-# The purpose of this script is to calculate the following variables for the microstrucutre project:
+# The purpose of this script is to calculate the following variables for the microstrucutre project
 
-# InterBiteInterval (IBI) = interval between 2 bites (eat_f and eat_f) in seconds
+# InterBiteInterval (IBI) = interval between start of 2 bites (eat_f and eat_f) in seconds
 # InterEatingInterval_f (InterEatInt_f) = interval between end of 1 bite (eat_f) and start of next bite (eat_f) in seconds
 # InterEatingInterval_n (InterEatInt_n)= interval between end of chewing (eat_n) and start of next bite (eat_f) in seconds
 ## note, if >1 eat_n follow a eat_f, the end of the last eat_n will be considered the end of the episode
@@ -13,16 +13,16 @@ import csv
 import datetime
 import pprint
 
-path = "/Users/barifuchs/Box/Bari_files/00_PennState/Bout_Project/Data/Annotation/"
-#path = "/Users/baf44/Box/Bari_files/00_PennState/Bout_Project/Data/Annotation/"
+homedir = os.getenv("HOME")
+path = homedir + "/Box/Bari_files/00_PennState/Bout_Project/Data/Annotation/"
 filenames = os.listdir(path)
 
-
-#for filename in filenames: # for every file in the directory
-for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in timecolumn
+for filename in filenames: # for every file in the directory
+#for filename in ['AUR0117_visit1.csv']: #has "drink" in annotation column
+#for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in timecolumn
 #for filename in ['AUR0029_visit1.csv']: #file with no missing data or drinks
-    prefix = filename.split('.')[0] # get prefix of file
-    print(prefix)
+    prefix = filename.split('.')[0] # get prefix of file (parid_session)
+
     if 'AUR' in filename: 
         data = [] # create empty list... this will become a list of dictionaries
         with open (path+filename) as file:
@@ -32,6 +32,14 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
             for line in csv_reader: #for every line in csv
                 sampledict = {} # create a dictionary
                 # create keys (i.e. "index", "start_time") for each dictionary ... each key will have 1 value
+                
+                if "_" in prefix :
+                    sampledict["parid"] = prefix.split('_')[0] # get participant id 
+                    sampledict["session"] = (prefix.split('_')[1])[-1]
+                else:
+                    sampledict["parid"] = prefix
+                    sampledict["session"] = 1 #if no session is indicated, only 1 session occured
+                    
                 sampledict["id"] = i
                 sampledict["start_time"] = line[0].strip("[]") #starttime is value in 1st column
                 sampledict["end_time"] = line[1].strip("[]") #Endtime is value in 2st column
@@ -59,28 +67,29 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
                 
             data_snack = data[i+1::]
 
+## MAKE LISTS OF DICTIONARIES THAT DO NOT INCLUDE "DRINKS"
     # make list of dictionaries for each NEW BITE (annotation eat_f) in meal paradigm
         data_meal_fonly = []
         for sampledict in data_meal:
-            if sampledict["Annotation"] == "eat_f" :
+            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat":
                 data_meal_fonly.append(sampledict)
 
     # make list of dictionaries for NEW BITE in snack paradigm
         data_snack_fonly = []
         for sampledict in data_snack:
-            if sampledict["Annotation"] == "eat_f" :
+            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat":
                 data_snack_fonly.append(sampledict)
 
     # make list of dictionaries for each eating occasion (annotations eat_f and eat_n) in meal paradigm
         data_meal_fn = []
         for sampledict in data_meal:
-            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat_n":
+            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat_n" or sampledict["Annotation"] == "eat" or sampledict["Annotation"] == "other chew":
                 data_meal_fn.append(sampledict)
 
     # make list of dictionaries for each eating occasion (annotations eat_f and eat_n) in snack paradigm
         data_snack_fn = []
         for sampledict in data_snack:
-            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat_n":
+            if sampledict["Annotation"] == "eat_f" or sampledict["Annotation"] == "eat_n" or sampledict["Annotation"] == "eat" or sampledict["Annotation"] == "other chew":
                 data_snack_fn.append(sampledict)
 
     #### Dealing with '?' in time column:
@@ -164,24 +173,24 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
 
             if i == 0:
                 continue
-            prev_start_time_str = data_meal_fn[i-1]["start_time"]
-            prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
-
             prev_end_time_str = data_meal_fn[i-1]["end_time"]
-            prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
-
             start_time_str = data_meal_fn[i]["start_time"]
-            start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
 
-            if data_meal_fn[i]["Annotation"] == "eat_f" :
-                data_meal_fn[i]["InterEatInt_n"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
-            
-            if data_meal_fn[i]["Annotation"] == "eat_n" :
+            if data_meal_fn[i]["Annotation"] == "eat_f" or data_meal_fn[i]["Annotation"] == "eat":
+                if prev_end_time_str == '?' or start_time_str == "?":
+                    data_meal_fn[i]["InterEatInt_n"] = 'NA'
+                if prev_end_time_str != '?' and start_time_str != "?":
+                    prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
+                    start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                    data_meal_fn[i]["InterEatInt_n"] = (start_time_obj - prev_end_time_obj).total_seconds()
+
+            if data_meal_fn[i]["Annotation"] == "eat_n" or data_meal_fn[i]["Annotation"] == "other chew":
                 data_meal_fn[i]["InterEatInt_n"] = "NA"
                 
         #print(data_meal_fn)[29:35]
-
+        #print max(dmfn['id'] for dmfn in data_meal_fn)
         for dmfn in data_meal_fn:
+            #print max(dmfn['id'])
             if "InterEatInt_n" in dmfn:
                 data[dmfn["id"]]["InterEatInt_n"] = dmfn["InterEatInt_n"]
             if "Paradigm" in dmfn:
@@ -193,19 +202,18 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
             data_snack_fn[i]["Paradigm"] = "Snack"
             if i == 0:
                 continue
-            prev_start_time_str = data_snack_fn[i-1]["start_time"]
-            prev_start_time_obj = datetime.datetime.strptime(prev_start_time_str, '%H:%M:%S')
-
             prev_end_time_str = data_snack_fn[i-1]["end_time"]
-            prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
-
             start_time_str = data_snack_fn[i]["start_time"]
-            start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
 
-            if data_snack_fn[i]["Annotation"] == "eat_f" :
-                data_snack_fn[i]["InterEatInt_n"] = (start_time_obj - prev_end_time_obj).total_seconds() #need to fill in with 0 if 0??
+            if data_snack_fn[i]["Annotation"] == "eat_f" or data_snack_fn[i]["Annotation"] == "eat":
+                if prev_end_time_str == '?' or start_time_str == "?":
+                    data_snack_fn[i]["InterEatInt_n"] = 'NA' 
+                if prev_end_time_str != '?' and start_time_str != "?":
+                    prev_end_time_obj = datetime.datetime.strptime(prev_end_time_str, '%H:%M:%S')
+                    start_time_obj = datetime.datetime.strptime(start_time_str, '%H:%M:%S')
+                    data_snack_fn[i]["InterEatInt_n"] = (start_time_obj - prev_end_time_obj).total_seconds()
             
-            if data_snack_fn[i]["Annotation"] == "eat_n" :
+            if data_snack_fn[i]["Annotation"] == "eat_n" or data_snack_fn[i]["Annotation"] == "other chew":
                 data_snack_fn[i]["InterEatInt_n"] = "NA"  
 
         for dsfn in data_snack_fn:
@@ -213,7 +221,6 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
                 data[dsfn["id"]]["InterEatInt_n"] = dsfn["InterEatInt_n"]
             if "Paradigm" in dsfn:
                 data[dsfn["id"]]["Paradigm"] = dsfn["Paradigm"]
-
 
         # if key isnt there, add it in
         for sampledict in data:
@@ -226,13 +233,22 @@ for filename in ['AUR0038_visit3.csv']: #has missing data (question mark) in tim
             if 'Paradigm' not in sampledict:
                 sampledict["Paradigm"] = "NA"
 
+        # if value are '?', change to NA
+        for sampledict in data:
+            if sampledict["start_time"] == "?":
+                sampledict["start_time"] = "NA"
+            if sampledict["end_time"] == "?":
+                sampledict["end_time"] = "NA"
+            if sampledict["chewtimes"] == "?":
+                sampledict["chewtimes"] = "NA"
+
         # create folder for output if it doesnt exist
-        out_path = "/Users/barifuchs/Box/Bari_files/00_PennState/Bout_Project/Data/Intervals/"
+        out_path = homedir + "/Box/Bari_files/00_PennState/Bout_Project/Data/Intervals/"
         if not os.path.exists(out_path):
             os.makedirs(out_path)
 
         # write list of dictionaries to csv
         with open(out_path + prefix + '_intervals.csv', 'w') as csvfile:
-            fc = csv.DictWriter(csvfile, fieldnames=['id','Paradigm','start_time','end_time','Annotation','category','Foodtype','chewtimes','IBI','InterEatInt_f','InterEatInt_n'])
+            fc = csv.DictWriter(csvfile, fieldnames=['parid','session','id','Paradigm','start_time','end_time','Annotation','category','Foodtype','chewtimes','IBI','InterEatInt_f','InterEatInt_n'])
             fc.writeheader()
             fc.writerows(data)
