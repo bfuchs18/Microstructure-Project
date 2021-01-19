@@ -1,10 +1,10 @@
 # The purpose of this script is define and use event_in_interval() to make time-series data to indicate:
     # (1) if an event occured within a specfied interval 
     # (2) how many events occured within each specific interval
-    # (3) The average IBI during that interval
+    # (3) The average inter-eating-interval (IEI, time between end of chewing and start of next bite) during that interval
 
 # Input into event_in_interval() will be a file containing a "StartTime_seconds_adjusted" column (in seconds) that indicates each time the event occured
-# If IBI option is used, input file also requires IBI column
+# If IEI option is used, input file also requires column with IEI intervals (for use here, column is named InterEatInt_n)
 # Input files can be generated using Gen_files_for_EventInt.R
 
 library(plyr)
@@ -32,9 +32,9 @@ AUR0029.1 <- read.csv("AUR0029.1_meal_bitesonly.csv", stringsAsFactors = FALSE)
 ## (2) Take an input interval (e.g. 2 seconds) and make a new dataframe (Interval.df) that contains a row for every interval within the recording (e.g., if recording is 30s and interval is 2s, B will contain 15 rows)
 ## (3) For each row in Interval.df (i.e., each interval), will look to input file to see if an event occured during that time; indicate TRUE or FALSE
 ## (4) For each row in Interval.df (i.e., each interval), will look to input file to count how many events occured during that time; output count
-## (5) For each row in Interval.df (i.e., each interval), will look to input file to average IBI over the given interval (optional use: IBI = TRUE)
+## (5) For each row in Interval.df (i.e., each interval), will look to input file to average IEI over the given interval (optional use: IEI = TRUE)
 
-event_in_interval <- function(data, unit, interval, IBI) {
+event_in_interval <- function(data, unit, interval, IEI) {
   
   if (unit == "percentage") {
     cat("unit is percentage", "\n")
@@ -92,9 +92,9 @@ event_in_interval <- function(data, unit, interval, IBI) {
     eventcount = 0
     lastrow = nrow(data)
     
-    if (IBI == TRUE) {
+    if (IEI == TRUE) {
       # Make an empty list 
-      IBIlist = c()
+      IEIlist = c()
     }
     
     # Reference each event from input dataset and count how many events occured between lower and upperthresholds for each interval
@@ -103,8 +103,8 @@ event_in_interval <- function(data, unit, interval, IBI) {
          # For all intervals except the last, do not include the upper boundary
           if (isTRUE(data$StartTime_seconds_adjusted[eventnum] >= lowerthresh & data$StartTime_seconds_adjusted[eventnum] < upperthresh)) {
             eventcount = eventcount + 1
-            if (IBI == TRUE) {
-              IBIlist <- append(IBIlist, data$IBI[eventnum])
+            if (IEI == TRUE) {
+              IEIlist <- append(IEIlist, data$InterEatInt_n[eventnum])
             }
           }
         }
@@ -112,19 +112,19 @@ event_in_interval <- function(data, unit, interval, IBI) {
         # For the last interval, include the upper boundary
           if (isTRUE(data$StartTime_seconds_adjusted[eventnum] >= lowerthresh & data$StartTime_seconds_adjusted[eventnum] <= upperthresh)) {
             eventcount = eventcount + 1
-            if (IBI == TRUE) {
-              IBIlist <- append(IBIlist, data$IBI[eventnum])
+            if (IEI == TRUE) {
+              IEIlist <- append(IEIlist, data$InterEatInt_n[eventnum])
             }
           }
       }
     }
     
-    # Add EventCount and IBI_avg to output dataframe    
+    # Add EventCount and IEI_avg to output dataframe    
     Interval.df$EventCount[Interval.df$IntNum == Int] = eventcount
   
-    if (IBI == TRUE ) {
-      print(IBIlist)
-      Interval.df$IBI_avg[Interval.df$IntNum == Int] = mean(IBIlist, na.rm = TRUE)
+    if (IEI == TRUE ) {
+      print(IEIlist)
+      Interval.df$IEI_avg[Interval.df$IntNum == Int] = mean(IEIlist, na.rm = TRUE)
     }
   }
   
@@ -137,10 +137,10 @@ event_in_interval <- function(data, unit, interval, IBI) {
 
 #### Apply function; output individual or compiled dataframes ####
 
-test <- event_in_interval(AUR0029.1, "percentage", 10, IBI = TRUE)
+test <- event_in_interval(AUR0029.1, "percentage", 10, IEI = TRUE)
 
 # Set desired intervals
-intlist <- list(10)
+intlist <- list(20)
 #unit = "time"
 unit = "percentage"
 
@@ -158,7 +158,7 @@ for (interval in intlist) {
         else if (nrow(file) > 1) {
           sesnum <- (file$session[1])
           parid <- print(file$parid[1], max.levels = 0)
-          output <- event_in_interval(file, unit, interval, IBI = TRUE)
+          output <- event_in_interval(file, unit, interval, IEI = TRUE)
           output$ParID <- parid
           output$session <- sesnum
           output$ID <- as.character(paste(output$ParID, output$session, sep = "_"))
