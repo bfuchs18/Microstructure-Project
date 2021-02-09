@@ -1,12 +1,44 @@
 #install.packages("plot.matrix")
 library('plot.matrix')
+library(plyr)
+library(dplyr)
+library(readr)
+library(hms)
+library(chron)
 
 ### This script generates matrices resulting from running Kolmogorov–Smirnov tests between each pair of meals
 ## (1) A test-statistic matrix with D-statistic values
 ## (2) A p-value matrix
 
+#### Import data ####
+
+basedir <- ("~/OneDrive - The Pennsylvania State University/Bari-files-Manual-Box-Transfer/00_PennState/Bout_Project")
+setwd(file.path(basedir,"Data/Intervals/"))
+
+myfiles = list.files(pattern="*.csv")
+list.files()
+dat_csv = ldply(myfiles, read_csv)
+
 #### Prepare dataframes ####
-# Make full ID variable in dataframe
+# set class of variables
+dat_csv$IBI <- as.numeric(dat_csv$IBI)
+dat_csv$InterEatInt_f <- as.numeric(dat_csv$InterEatInt_f)
+dat_csv$InterEatInt_n <- as.numeric(dat_csv$InterEatInt_n)
+dat_csv$chewtimes <- as.numeric(dat_csv$chewtimes)
+dat_csv$id <- as.numeric(dat_csv$id)
+
+# Recode mis-coded variables
+# Note: For AUR0076, "eat_f" is coded as "eat" ; "eat_n" is coded as "other chew"
+unique(dat_csv$Annotation)
+dat_csv$Annotation[dat_csv$Annotation == "eat"] <- "eat_f"
+dat_csv$Annotation[dat_csv$Annotation == "drinK"] <- "drink"
+dat_csv$Annotation[dat_csv$Annotation == "other chew"] <- "eat_n"
+
+# subset data
+meals <- subset(dat_csv, Paradigm == "Meal") # This dateframe excludes drinks
+snacks <- subset(dat_csv, Paradigm == "Snack") # This dateframe excludes drinks
+
+# Make full ID variables in dataframe
 meals$FullID <- paste(meals$parid, meals$session, meals$Paradigm, sep="_")
 snacks$FullID <- paste(snacks$parid, snacks$session, snacks$Paradigm, sep="_")
 
