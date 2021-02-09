@@ -1,63 +1,95 @@
+#install.packages("plot.matrix")
+library('plot.matrix')
+
 ### This script generates matrices resulting from running Kolmogorov–Smirnov tests between each pair of meals
 ## (1) A test-statistic matrix with D-statistic values
 ## (2) A p-value matrix
-## (3) A combined matrix with test-stats and p-values
 
+#### Prepare dataframes ####
 # Make full ID variable in dataframe
 meals$FullID <- paste(meals$parid, meals$session, meals$Paradigm, sep="_")
+snacks$FullID <- paste(snacks$parid, snacks$session, snacks$Paradigm, sep="_")
 
 # Make a wide dataset with 1 column per meal, 1 row per bite entry. This method will pad NAs so columns are of equal length
-IEI_wide <- dcast(data = meals, id~FullID, value.var='InterEatInt_n')
+IEI_wide_meal <- dcast(data = meals, id~FullID, value.var='InterEatInt_n')
+IEI_wide_snack <- dcast(data = meals, id~FullID, value.var='InterEatInt_n')
 
-### Make 2 matrices, separating p-values and test-statistics
-d.mat <- matrix(, nrow = 0, ncol = 30)
-p.mat <- matrix(, nrow = 0, ncol = 30)
+#### Generate meal matrices ####
+
+d.mat_meal <- matrix(, nrow = 0, ncol = 30)
+p.mat_meal <- matrix(, nrow = 0, ncol = 30)
 
 for (c in 2:31) {
-  r <- IEI_wide[,c]
+  r <- IEI_wide_meal[,c]
   
-  p.val <- sapply(IEI_wide[,2:31], function(y) {
+  p.val <- sapply(IEI_wide_meal[,2:31], function(y) {
     ks <- ks.test(r, y)
     c(p.value=ks$p.value)
     setNames(c(ks$p.value), c("p.value"))
   })
   
-  d.val<- sapply(IEI_wide[,2:31], function(y) {
+  d.val<- sapply(IEI_wide_meal[,2:31], function(y) {
     ks <- ks.test(r, y)
     c(statistic=ks$statistic)
   })
   
-  p.mat <- rbind(p.mat, p.val)
-  d.mat <- rbind(d.mat, d.val)
+  p.mat_meal <- rbind(p.mat_meal, p.val)
+  d.mat_meal <- rbind(d.mat_meal, d.val)
 }
 
 #rename row and column names
-rownames(p.mat) <- colnames(IEI_wide[2:31])
-colnames(p.mat) <- colnames(IEI_wide[2:31])
+rownames(p.mat_meal) <- colnames(IEI_wide_meal[2:31])
+colnames(p.mat_meal) <- colnames(IEI_wide_meal[2:31])
+rownames(d.mat_meal) <- colnames(IEI_wide_meal[2:31])
+colnames(d.mat_meal) <- colnames(IEI_wide_meal[2:31])
 
-rownames(d.mat) <- colnames(IEI_wide[2:31])
-colnames(d.mat) <- colnames(IEI_wide[2:31])
+#### Generate snack matrices ####
+# For each meal, make 2 matrices, separating p-values and test-statistics
+d.mat_snack <- matrix(, nrow = 0, ncol = 30)
+p.mat_snack <- matrix(, nrow = 0, ncol = 30)
 
-### Make 1 matrix with p-values and test-statistics
-full.mat <- matrix(, nrow = 0, ncol = 30)
 for (c in 2:31) {
-  r <- IEI_wide[,c]
-  res <- sapply(IEI_wide[,2:31], function(y) {
+  r <- IEI_wide_snack[,c]
+  
+  p.val <- sapply(IEI_wide_snack[,2:31], function(y) {
     ks <- ks.test(r, y)
-    c(statistic=ks$statistic, p.value=ks$p.value)
-    setNames(c(ks$statistic, ks$p.value), c("statistic", "p.value"))
+    c(p.value=ks$p.value)
+    setNames(c(ks$p.value), c("p.value"))
   })
   
-  full.mat <- rbind(full.mat, res)
+  d.val<- sapply(IEI_wide_snack[,2:31], function(y) {
+    ks <- ks.test(r, y)
+    c(statistic=ks$statistic)
+  })
+  
+  p.mat_snack <- rbind(p.mat_snack, p.val)
+  d.mat_snack <- rbind(d.mat_snack, d.val)
 }
 
+#rename row and column names
+rownames(p.mat_snack) <- colnames(IEI_wide_snack[2:31])
+colnames(p.mat_snack) <- colnames(IEI_wide_snack[2:31])
+rownames(d.mat_snack) <- colnames(IEI_wide_snack[2:31])
+colnames(d.mat_snack) <- colnames(IEI_wide_snack[2:31])
 
-## View rounded matrices
-round(full.mat, 2)
-p.mat <- round(p.mat, 2)
-d.mat <- round(d.mat, 2)
 
-#install.packages("plot.matrix")
-library('plot.matrix')
-plot(d.mat, main="KS test - D stat matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5, col=topo.colors)
-plot(p.mat, main="KStest - P value matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5)
+
+#### Visualize matrices ####
+
+## View rounded numerical matrices
+round(p.mat_snack, 2)
+round(d.mat_snack, 2)
+
+## with colors
+
+# note: with plot(as.pvalue()) the breaks are set to 0, 0.1, 0.05, 0.01, 0.001 and 1
+# Significant p-values indicate that the tested pair has different distribitions 
+
+plot(d.mat_meal, main="Meal paradigm IEI: KStest D stat matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5, col=topo.colors)
+plot(as.pvalue(p.mat_meal), main="Meal paradigm IEI: KStest p-value matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5, digits = NA)
+
+plot(d.mat_snack, main="Snack paradigm IEI: KStest D stat matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5, col=topo.colors)
+plot(as.pvalue(p.mat_snack), main="Snack paradigm IEI: KStest p-value matrix", axis.col=list(side=1, las=2), axis.row = list(side=2, las=1), cex.axis = .5, digits = NA)
+
+
+
