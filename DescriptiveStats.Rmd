@@ -183,9 +183,26 @@ psych::describe(meals$InterEatInt_n, na.rm = TRUE)
 psych::describe(snacks$InterEatInt_n, na.rm = FALSE)
 
 
-#### Histogram: InterEatInt_n ####
-ggplot(meals,aes(x = InterEatInt_n)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 60))
+# session 1
+# FIGURE OUT HOW TO AUTOMATICALLY MAKE A TABLE FROM THIS
+IEI_meal1_descriptives <- psych::describeBy(meals[which(meals$session==1),]$InterEatInt_n, group = meals[which(meals$session==1),]$parid, na.rm = TRUE)
+psych::describe(snacks$InterEatInt_n, na.rm = FALSE)
+# session 2
+psych::describeBy(meals[which(meals$session==2),]$InterEatInt_n, group = meals[which(meals$session==2),]$parid, na.rm = TRUE)
+# session 3
+psych::describeBy(meals[which(meals$session==3),]$InterEatInt_n, group = meals[which(meals$session==3),]$parid, na.rm = TRUE)
 
+
+#### Histogram: InterEatInt_n ####
+psych::describe(meals$InterEatInt_n, na.rm = TRUE)
+psych::describe(snacks$InterEatInt_n, na.rm = FALSE)
+
+# combined across participants 
+ggplot(meals[which(meals$session==1),],aes(x = InterEatInt_n)) + geom_histogram(bins = 15)
+ggplot(snacks[which(snacks$session==1),],aes(x = InterEatInt_n)) + geom_histogram(bins = 15)
+
+# By participant and session
+ggplot(meals,aes(x = InterEatInt_n)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 60))
 ggplot(snacks,aes(x = InterEatInt_n)) + geom_histogram(bins = 15) + facet_grid(parid~session) + scale_x_continuous(limits=c(0, 100))
 
 # histogram with density plot
@@ -193,13 +210,13 @@ ggplot(meals, aes(x=InterEatInt_n)) +
   geom_histogram(aes(y=..density..), colour="black", fill="white", bins = 15) +
   geom_density(alpha=.2, fill="#FF6666") +
   facet_grid(parid~session)+
-  scale_x_continuous(limits=c(0, 60))
+  scale_x_continuous(limits=c(0, 30))
 
 ggplot(snacks, aes(x=InterEatInt_n)) + 
   geom_histogram(aes(y=..density..), colour="black", fill="white", bins = 30) +
   geom_density(alpha=.2, fill="#FF6666") +
   facet_grid(parid~session)+
-  scale_x_continuous(limits=c(0, 750))
+  scale_x_continuous(limits=c(0, 30))
 
 
 #### Timeseries: Inter_eat_n ####
@@ -233,8 +250,8 @@ Kolmogorov–Smirnov test?
 This is because, the K-S statistic quantifies the greatest distance between the empirical distribution functions of two samples and tests if the observed distance is greater than expected.
 https://chemicalstatistician.wordpress.com/2013/06/25/exploratory-data-analysis-2-ways-of-plotting-empirical-cumulative-distribution-functions-in-r/ 
 
-```{r compare distributions}
-# QUESTION: Do the distributions of IBIs differ between meal types (meal vs. snack)? within a person? between people?
+```{r compare snack and meal IEI distributions}
+# QUESTION: Do the distributions of IEIs differ between meal types (meal vs. snack)? within a person? between people?
 # H1: Distributions of IBIs will differ between meals and snacks
 # H2: For the same meal type, distributions of IBIs will be similar (not differ) within a person
 # H3: For the same meal type, distributions of IBIs will vary between people, but not as much as between meals vs. snacks
@@ -244,11 +261,8 @@ https://chemicalstatistician.wordpress.com/2013/06/25/exploratory-data-analysis-
 
 #### snack vs meal overall ####
 ## Do snack-IBI and meal-IBI come from the same distribution? (H1)
-ks.test(meals$IBI, snacks$IBI) #not sure if this is valid bc there are repeated measures within a meal and subject?
-ks.test(meals[which(meals$session==1),]$IBI, snacks[which(meals$session==1),]$IBI) #only using session 1 data for each person.
-
-#### D-test statistic matrix ####
-
+ks.test(meals$InterEatInt_n, snacks$InterEatInt_n) #not sure if this is valid bc there are repeated measures within a meal and subject?
+kstest <- ks.test(meals[which(meals$session==1),]$InterEatInt_n, snacks[which(meals$session==1),]$InterEatInt_n) #only using session 1 data for each person.
 
 
 ```
@@ -259,94 +273,6 @@ To do: statistically examine between and within subject variability
 (1) For "between-meal" variables (i.e. 1 value per meal): assess variability between meals for each subject (e.g. variability between meal 1 and meal 2), and variability between subjects
 
 (2) For "within-meal" variables (i.e. repeat values per meal): assess variability across ALL meals for each subject (e.g. ignoring session), and between subjects [is this valid???]
-
-```{r ICC "within meal" variables, ignoring session}
-library(lme4)
-# ICC is the % of total variability that is between person
-# 1-ICC is the % of total variability that is within person
-
-
-#### Chewtimes ####
-# meals
-emptymodel <- lmer(formula = chewtimes ~ 1 + (1|parid), 
-              data=meals,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.1089099
-
-# snacks
-emptymodel <- lmer(formula = chewtimes ~ 1 + (1|parid), 
-              data=snacks,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.08835908
-
-#### IBI ####
-# meals
-emptymodel <- lmer(formula = IBI ~ 1 + (1|parid), 
-              data=meals,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.07767203
-
-# snacks
-#emptymodel <- lmer(formula = IBI ~ 1 + (1|parid), 
-#              data=snacks,
-#              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between 
-
-
-#### InterEatInt_n ####
-# meals
-emptymodel <- lmer(formula = InterEatInt_n ~ 1 + (1|parid), 
-              data=meals,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.04215449 ... 4% of the variance is accounted for by between-person differences
-
-# snacks
-#emptymodel <- lmer(formula = InterEatInt_f ~ 1 + (1|parid), 
-#              data=snacks,
-#              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between 
-```
-
-
-```{r ICC "between meal" variables}
-library(lme4)
-
-#### chewavg ####
-emptymodel <- lmer(formula = chewavg ~ 1 + (1|parid), 
-              data=meals_means,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.5680399
-
-#### meal duration ####
-emptymodel <- lmer(formula = mealdur_min ~ 1 + (1|parid), 
-              data=meals_means,
-              na.action=na.exclude)
-RandomEffects <- as.data.frame(VarCorr(emptymodel))
-#ICC = intercept variance / total variance
-ICC_between <- RandomEffects[1,4]/(RandomEffects[1,4]+RandomEffects[2,4]) 
-ICC_between #0.6302614
-```
 
 ```{r Event in Interval}
 library(ggplot2)
@@ -395,11 +321,20 @@ ggplot(Meal_Event_in_percentage_interval_5,aes(x=IntNum,y=EventCount,colour=ParI
 ggplot(Snack_Event_in_percentage_interval_20,aes(x=IntNum,y=EventCount,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session)
 
 
-
 #### Graph cumulative variables over time ####
-ggplot(Meal_Event_in_percentage_interval_50,aes(x=IntNum,y=EventCount_cumulative,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session)
+# EVENT OCCUR
 ggplot(Meal_Event_in_percentage_interval_50,aes(x=IntNum,y=EventOccur_cumulative,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session)
+ggplot(Snack_Event_in_percentage_interval_50,aes(x=IntNum,y=EventOccur_cumulative,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session)
 
+# EVENT COUNT
+ggplot(Meal_Event_in_percentage_interval_10,aes(x=IntNum,y=EventCount_cumulative,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session) + geom_point()
+ggplot(Snack_Event_in_percentage_interval_10,aes(x=IntNum,y=EventCount_cumulative,colour=ParID,group=ParID)) + geom_line() + facet_grid(ParID~session) + geom_point()
+
+#session 1 only - all parID in 1 frame
+ggplot(Meal_Event_in_percentage_interval_10[which(Meal_Event_in_percentage_interval_10$session=='1'),], aes(IntNum, EventCount_cumulative)) +
+  geom_line(aes(linetype = ParID)) + ylim(0, 150)
+ggplot(Snack_Event_in_percentage_interval_10[which(Snack_Event_in_percentage_interval_10$session=='1'),], aes(IntNum, EventCount_cumulative)) +
+  geom_line(aes(linetype = ParID)) + ylim(0, 150)
 
 #### Correlate bite counts between all meals ####
 # Transpose dataset long to wide
@@ -436,13 +371,18 @@ source("Event_in_interval.R")
 #ggplot(Meal_Event_in_time_interval_60,aes(x=IntNum,y=IBI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
 #### Average IEI over time  ####
-ggplot(Meal_Event_in_percentage_interval_20,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
+#meals
+ggplot(Meal_IEI_in_percentage_interval_20,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
-ggplot(Meal_Event_in_time_interval_20,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
+ggplot(Meal_IEI_in_time_interval_20,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
 ggplot(Meal_Event_in_percentage_interval_10,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
 ggplot(Meal_Event_in_percentage_interval_5,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
+# snacks
+ggplot(Snack_Event_in_percentage_interval_10,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
+
+ggplot(Snack_Event_in_percentage_interval_5,aes(x=IntNum,y=IEI_avg,colour=ParID,group=ParID)) + geom_bar(stat = 'identity' ) + facet_grid(ParID~session)
 
 ```
