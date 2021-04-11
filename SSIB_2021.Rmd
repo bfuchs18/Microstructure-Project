@@ -46,8 +46,9 @@ full_snacks <- subset(dat_csv, Paradigm == "Snack") # This dateframe excludes dr
 meals <- full_meals
 
 ID = unique(meals$parid)
-KS_summary_meals = data.frame(matrix(rep(NA,8*length(ID)),ncol = 8))
-names(KS_summary_meals) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests")
+KS_summary_meals = data.frame(matrix(rep(NA,9*length(ID)),ncol = 9))
+names(KS_summary_meals) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", 
+                            "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests","n_par_diff_from")
 
 ### Clean meals database... if # IEI values in a session is < 10, remove session from database ###
 for (i in 1:length(ID)) {
@@ -73,10 +74,9 @@ for (i in 1:length(ID)) {
   nsess = length(sessions_vector)
   KS_summary_meals[i,"ParID"] = as.character(ID[i])
   KS_summary_meals[i,"nsess"] = nsess
-  
+
+#### WITHIN SUBJECT COMPARISONS for subjects with >1 session
   if (nsess > 1) {
-    btw_KS_vector_D = NA
-    btw_KS_vector_sig = NA
     num_WP_sig = 0
     
     IEI_1 = dat[dat$session == sessions_vector[1], "InterEatInt_n"]
@@ -111,33 +111,43 @@ for (i in 1:length(ID)) {
       KS_summary_meals[i,"n_sig_WP_tests"] = num_WP_sig
     }
     KS_summary_meals[i,"avg_D_WP_tests"] = avg_within_KS_d
-    
-    
-    dat_other = meals[meals$parid != ID[i],]
-    
-    dat_other_wide = dcast(dat_other, id ~ parid + session, value.var = "InterEatInt_n")
-    n_other = ncol(dat_other_wide)
-    
-    for (s in sessions_vector) {
-      for (c in 2:n_other) {
-        IEI = dat[dat$session == s, "InterEatInt_n"]
-        IEI_other = dat_other_wide[,c]
-        btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
-        
-        #add to vector
-        btw_KS_vector_D[c-1] = btw_KS
-        
-        if (as.numeric(ks.test(IEI, IEI_other)$p) < 0.001) {
-          btw_KS_vector_sig[c-1] = "sig"
-        }
-        else if (as.numeric(ks.test(IEI, IEI_other)$p) >= 0.001)
-          btw_KS_vector_sig[c-1] = "NS"
+  }
+  #### BETWEEN SUBJECT COMPARISONS for all subjects
+  btw_KS_vector_D = NA
+  btw_KS_vector_sig = NA
+  btw_KS_vector_other_par = NA
+  dat_other = meals[meals$parid != ID[i],]
+  
+  dat_other_wide = dcast(dat_other, id ~ parid + session, value.var = "InterEatInt_n")
+  n_other = ncol(dat_other_wide)
+  
+  for (s in sessions_vector) {
+    for (c in 2:n_other) {
+      other_id_session = colnames(dat_other_wide[c])
+      other_id = strsplit(other_id_session, '_')[[1]][1]
+      IEI = dat[dat$session == s, "InterEatInt_n"]
+      IEI_other = dat_other_wide[,c]
+      btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
+      btw_KS_p = as.numeric(ks.test(IEI, IEI_other)$p)
+      
+      #add to vector
+      btw_KS_vector_D[c-1] = btw_KS
+      
+      if (btw_KS_p < 0.001) {
+        btw_KS_vector_sig[c-1] = "sig"
+        btw_KS_vector_other_par[c-1] = other_id
+      } else if (btw_KS_p >= 0.001) {
+        btw_KS_vector_sig[c-1] = "NS"
+        btw_KS_vector_other_par[c-1] = NA
       }
     }
-    KS_summary_meals[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
-    KS_summary_meals[i,"n_BP_tests"] = length(btw_KS_vector_sig)
-    KS_summary_meals[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
   }
+  
+  # Add to summary table
+  KS_summary_meals[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
+  KS_summary_meals[i,"n_BP_tests"] = length(btw_KS_vector_sig)
+  KS_summary_meals[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
+  KS_summary_meals[i,"n_par_diff_from"] = length(unique(na.omit(btw_KS_vector_other_par)))
 }
 
 ```
@@ -147,8 +157,9 @@ for (i in 1:length(ID)) {
 snacks <- full_snacks
 
 ID = unique(snacks$parid)
-KS_summary_snacks = data.frame(matrix(rep(NA,8*length(ID)),ncol = 8))
-names(KS_summary_snacks) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests")
+KS_summary_snacks = data.frame(matrix(rep(NA,9*length(ID)),ncol = 9))
+names(KS_summary_snacks) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", 
+                             "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests", "n_par_diff_from")
 
 ### Clean snacks database... if # IEI values in a session is < 10, remove session from database ###
 for (i in 1:length(ID)) {
@@ -175,9 +186,8 @@ for (i in 1:length(ID)) {
   KS_summary_snacks[i,"ParID"] = as.character(ID[i])
   KS_summary_snacks[i,"nsess"] = nsess
   
+#### WITHIN SUBJECT COMPARISONS for subjects with >1 session
   if (nsess > 1) {
-    btw_KS_vector_D = NA
-    btw_KS_vector_sig = NA
     num_WP_sig = 0
     
     IEI_1 = dat[dat$session == sessions_vector[1], "InterEatInt_n"]
@@ -185,6 +195,7 @@ for (i in 1:length(ID)) {
     
     KS_d_1.2 = as.numeric(ks.test(IEI_1, IEI_2)$statistic)
     
+    # if test is significant, add to num_WP_sig count
     if ((ks.test(IEI_1, IEI_2)$p) < 0.001){
       num_WP_sig = num_WP_sig + 1
     }
@@ -193,7 +204,6 @@ for (i in 1:length(ID)) {
       avg_within_KS_d = KS_d_1.2
       KS_summary_snacks[i,"n_WP_tests"] = 1
       KS_summary_snacks[i,"n_sig_WP_tests"] = num_WP_sig
-      
       
     } else if (nsess == 3) {
       
@@ -212,33 +222,44 @@ for (i in 1:length(ID)) {
       KS_summary_snacks[i,"n_sig_WP_tests"] = num_WP_sig
     }
     KS_summary_snacks[i,"avg_D_WP_tests"] = avg_within_KS_d
-    
-    
-    dat_other = snacks[snacks$parid != ID[i],]
-    
-    dat_other_wide = dcast(dat_other, id ~ parid + session, value.var = "InterEatInt_n")
-    n_other = ncol(dat_other_wide)
-    
-    for (s in sessions_vector) {
-      for (c in 2:n_other) {
-        IEI = dat[dat$session == s, "InterEatInt_n"]
-        IEI_other = dat_other_wide[,c]
-        btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
-        
-        #add to vector
-        btw_KS_vector_D[c-1] = btw_KS
-        
-        if (as.numeric(ks.test(IEI, IEI_other)$p) < 0.001) {
-          btw_KS_vector_sig[c-1] = "sig"
-        }
-        else if (as.numeric(ks.test(IEI, IEI_other)$p) >= 0.001)
-          btw_KS_vector_sig[c-1] = "NS"
+  }
+  
+  ### BETWEEN SUBJECT COMPARISONS for everyone, regardless of number of sessions
+  btw_KS_vector_D = NA
+  btw_KS_vector_sig = NA
+  btw_KS_vector_other_par = NA
+  dat_other = snacks[snacks$parid != ID[i],]
+  
+  dat_other_wide = dcast(dat_other, id ~ parid + session, value.var = "InterEatInt_n")
+  n_other = ncol(dat_other_wide)
+  
+  for (s in sessions_vector) {
+    for (c in 2:n_other) {
+      other_id_session = colnames(dat_other_wide[c])
+      other_id = strsplit(other_id_session, '_')[[1]][1]
+      IEI = dat[dat$session == s, "InterEatInt_n"]
+      IEI_other = dat_other_wide[,c]
+      btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
+      btw_KS_p = as.numeric(ks.test(IEI, IEI_other)$p)
+      
+      #add to vector
+      btw_KS_vector_D[c-1] = btw_KS
+      
+      if (btw_KS_p < 0.001) {
+        btw_KS_vector_sig[c-1] = "sig"
+        btw_KS_vector_other_par[c-1] = other_id
+      } else if (btw_KS_p >= 0.001) {
+        btw_KS_vector_sig[c-1] = "NS"
+        btw_KS_vector_other_par[c-1] = NA
       }
     }
-    KS_summary_snacks[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
-    KS_summary_snacks[i,"n_BP_tests"] = length(btw_KS_vector_sig)
-    KS_summary_snacks[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
   }
+  
+  # add to summary table
+  KS_summary_snacks[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
+  KS_summary_snacks[i,"n_BP_tests"] = length(btw_KS_vector_sig)
+  KS_summary_snacks[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
+  KS_summary_snacks[i,"n_par_diff_from"] = length(unique(na.omit(btw_KS_vector_other_par)))
 }
 
 ```
