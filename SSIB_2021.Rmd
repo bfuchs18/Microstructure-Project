@@ -43,14 +43,11 @@ full_snacks <- subset(dat_csv, Paradigm == "Snack") # This dateframe excludes dr
 ## R Markdown
 
 ```{r compare IBI distributions for meals}
-
-# Remove AUR0049 session 3 and AUR0057 session 1 because number of IEIs is <10
-#meals <- full_meals[!(full_meals$FullID == "AUR0049_3_Meal" | full_meals$FullID == "AUR0057_1_Meal"),]
 meals <- full_meals
 
 ID = unique(meals$parid)
-KS_summary_meals = data.frame(matrix(rep(NA,4*length(ID)),ncol = 4))
-names(KS_summary_meals) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests")
+KS_summary_meals = data.frame(matrix(rep(NA,8*length(ID)),ncol = 8))
+names(KS_summary_meals) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests")
 
 ### Clean meals database... if # IEI values in a session is < 10, remove session from database ###
 for (i in 1:length(ID)) {
@@ -78,15 +75,24 @@ for (i in 1:length(ID)) {
   KS_summary_meals[i,"nsess"] = nsess
   
   if (nsess > 1) {
-    btw_KS_vector = NA
+    btw_KS_vector_D = NA
+    btw_KS_vector_sig = NA
+    num_WP_sig = 0
     
     IEI_1 = dat[dat$session == sessions_vector[1], "InterEatInt_n"]
     IEI_2 = dat[dat$session == sessions_vector[2], "InterEatInt_n"]
     
     KS_d_1.2 = as.numeric(ks.test(IEI_1, IEI_2)$statistic)
     
+    if ((ks.test(IEI_1, IEI_2)$p) < 0.001){
+      num_WP_sig = num_WP_sig + 1
+    }
+    
     if (nsess == 2) {
       avg_within_KS_d = KS_d_1.2
+      KS_summary_meals[i,"n_WP_tests"] = 1
+      KS_summary_meals[i,"n_sig_WP_tests"] = num_WP_sig
+      
       
     } else if (nsess == 3) {
       
@@ -94,8 +100,15 @@ for (i in 1:length(ID)) {
       KS_d_1.3 = as.numeric(ks.test(IEI_1, IEI_3)$statistic)
       KS_d_2.3 = as.numeric(ks.test(IEI_2, IEI_3)$statistic)
       
-      avg_within_KS_d = mean(KS_d_1.2, KS_d_1.3, KS_d_2.3)
+      if ((ks.test(IEI_1, IEI_3)$p) < 0.001){
+        num_WP_sig = num_WP_sig + 1 }
       
+      if ((ks.test(IEI_2, IEI_3)$p) < 0.001){
+        num_WP_sig = num_WP_sig + 1 }
+      
+      avg_within_KS_d = mean(KS_d_1.2, KS_d_1.3, KS_d_2.3)
+      KS_summary_meals[i,"n_WP_tests"] = 2
+      KS_summary_meals[i,"n_sig_WP_tests"] = num_WP_sig
     }
     KS_summary_meals[i,"avg_D_WP_tests"] = avg_within_KS_d
     
@@ -112,10 +125,119 @@ for (i in 1:length(ID)) {
         btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
         
         #add to vector
-        btw_KS_vector[c-1] = btw_KS
+        btw_KS_vector_D[c-1] = btw_KS
+        
+        if (as.numeric(ks.test(IEI, IEI_other)$p) < 0.001) {
+          btw_KS_vector_sig[c-1] = "sig"
+        }
+        else if (as.numeric(ks.test(IEI, IEI_other)$p) >= 0.001)
+          btw_KS_vector_sig[c-1] = "NS"
       }
     }
-    KS_summary_meals[i,"avg_D_BP_tests"] = mean(btw_KS_vector)
+    KS_summary_meals[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
+    KS_summary_meals[i,"n_BP_tests"] = length(btw_KS_vector_sig)
+    KS_summary_meals[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
+  }
+}
+
+```
+
+
+```{r compare IBI distributions for snacks}
+snacks <- full_snacks
+
+ID = unique(snacks$parid)
+KS_summary_snacks = data.frame(matrix(rep(NA,8*length(ID)),ncol = 8))
+names(KS_summary_snacks) = c("ParID", "nsess", "avg_D_WP_tests", "avg_D_BP_tests","n_WP_tests", "n_BP_tests", "n_sig_WP_tests", "n_sig_BP_tests")
+
+### Clean snacks database... if # IEI values in a session is < 10, remove session from database ###
+for (i in 1:length(ID)) {
+  dat = snacks[snacks$parid == ID[i],]
+  nsess = length(unique(dat$session))
+  counttable <- data.frame(table(dat$session[!is.na(dat$InterEatInt_n)]))
+  
+  #if # IEI values in a session is < 10, remove session from database
+  for (s in unique(dat$session)) {
+    if (counttable[s, "Freq"] <10) {
+      dat = dat[dat$session != s,]
+      snacks = snacks[!(snacks$parid == ID[i] & snacks$session == s ),] 
+    }
+  }
+}
+
+### KS test loop ###
+for (i in 1:length(ID)) {
+  dat = snacks[snacks$parid == ID[i],]
+  
+  # count the number of sessions 
+  sessions_vector <- unique(dat$session)
+  nsess = length(sessions_vector)
+  KS_summary_snacks[i,"ParID"] = as.character(ID[i])
+  KS_summary_snacks[i,"nsess"] = nsess
+  
+  if (nsess > 1) {
+    btw_KS_vector_D = NA
+    btw_KS_vector_sig = NA
+    num_WP_sig = 0
+    
+    IEI_1 = dat[dat$session == sessions_vector[1], "InterEatInt_n"]
+    IEI_2 = dat[dat$session == sessions_vector[2], "InterEatInt_n"]
+    
+    KS_d_1.2 = as.numeric(ks.test(IEI_1, IEI_2)$statistic)
+    
+    if ((ks.test(IEI_1, IEI_2)$p) < 0.001){
+      num_WP_sig = num_WP_sig + 1
+    }
+    
+    if (nsess == 2) {
+      avg_within_KS_d = KS_d_1.2
+      KS_summary_snacks[i,"n_WP_tests"] = 1
+      KS_summary_snacks[i,"n_sig_WP_tests"] = num_WP_sig
+      
+      
+    } else if (nsess == 3) {
+      
+      IEI_3 = dat[dat$session == sessions_vector[3], "InterEatInt_n"]
+      KS_d_1.3 = as.numeric(ks.test(IEI_1, IEI_3)$statistic)
+      KS_d_2.3 = as.numeric(ks.test(IEI_2, IEI_3)$statistic)
+      
+      if ((ks.test(IEI_1, IEI_3)$p) < 0.001){
+        num_WP_sig = num_WP_sig + 1 }
+      
+      if ((ks.test(IEI_2, IEI_3)$p) < 0.001){
+        num_WP_sig = num_WP_sig + 1 }
+      
+      avg_within_KS_d = mean(KS_d_1.2, KS_d_1.3, KS_d_2.3)
+      KS_summary_snacks[i,"n_WP_tests"] = 2
+      KS_summary_snacks[i,"n_sig_WP_tests"] = num_WP_sig
+    }
+    KS_summary_snacks[i,"avg_D_WP_tests"] = avg_within_KS_d
+    
+    
+    dat_other = snacks[snacks$parid != ID[i],]
+    
+    dat_other_wide = dcast(dat_other, id ~ parid + session, value.var = "InterEatInt_n")
+    n_other = ncol(dat_other_wide)
+    
+    for (s in sessions_vector) {
+      for (c in 2:n_other) {
+        IEI = dat[dat$session == s, "InterEatInt_n"]
+        IEI_other = dat_other_wide[,c]
+        btw_KS = as.numeric(ks.test(IEI, IEI_other)$statistic)
+        
+        #add to vector
+        btw_KS_vector_D[c-1] = btw_KS
+        
+        if (as.numeric(ks.test(IEI, IEI_other)$p) < 0.001) {
+          btw_KS_vector_sig[c-1] = "sig"
+        }
+        else if (as.numeric(ks.test(IEI, IEI_other)$p) >= 0.001)
+          btw_KS_vector_sig[c-1] = "NS"
+      }
+    }
+    KS_summary_snacks[i,"avg_D_BP_tests"] = mean(btw_KS_vector_D)
+    KS_summary_snacks[i,"n_BP_tests"] = length(btw_KS_vector_sig)
+    KS_summary_snacks[i,"n_sig_BP_tests"] = length(which(btw_KS_vector_sig == "sig"))
   }
 }
 
