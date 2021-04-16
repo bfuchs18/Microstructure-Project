@@ -24,7 +24,7 @@ snack_file_names = list.files(pattern="*snack*", full.names = TRUE)
 snack_files = lapply(snack_file_names, read.csv, header = TRUE)
 
 # Load 1 file for testing script
-AUR0029.1 <- read.csv("AUR0029.1_meal_bitesonly.csv", stringsAsFactors = FALSE)
+AUR0153.3 <- read.csv("AUR0153.3_meal_bitesonly.csv", stringsAsFactors = FALSE)
 
 #### Define function for defining event (bite) occurance ####
 # Function will: 
@@ -124,7 +124,11 @@ event_in_interval <- function(data, unit, interval, IEI) {
   
     if (IEI == TRUE ) {
       print(IEIlist)
-      Interval.df$IEI_avg[Interval.df$IntNum == Int] = mean(IEIlist, na.rm = TRUE)
+      if (sum(!is.na(IEIlist)) > 0) {
+        Interval.df$IEI_avg[Interval.df$IntNum == Int] = mean(IEIlist, na.rm = TRUE)
+      } else {
+        Interval.df$IEI_avg[Interval.df$IntNum == Int] = Intdur
+      }
     }
   }
   
@@ -137,10 +141,10 @@ event_in_interval <- function(data, unit, interval, IEI) {
 
 #### Apply function; output individual or compiled dataframes ####
 
-test <- event_in_interval(AUR0029.1, "percentage", 10, IEI = TRUE)
+test <- event_in_interval(AUR0153.3, "percentage", 10, IEI = TRUE)
 
 # Set desired intervals
-intlist <- list(20)
+intlist <- list(10)
 #unit = "time"
 unit = "percentage"
 
@@ -148,8 +152,8 @@ unit = "percentage"
 for (interval in intlist) { 
     # Make temporary empty dataframe that all data will be added to
     temp <- data.frame(matrix(ncol = 7, nrow = 0))
-      for (file in meal_files) {
-      #for (file in snack_files) {
+      #for (file in meal_files) {
+      for (file in snack_files) {
         #mealtype = (file$Paradigm[1])
         if (nrow(file) == 0) {
           print("no data")
@@ -172,8 +176,8 @@ for (interval in intlist) {
       }
     
     # Modify name of temporary dataframe
-    assign(paste0("Meal_Event_in_", unit, "_interval_", interval), temp)
-    #assign(paste0("Snack_Event_in_", unit, "_interval_", interval), temp)
+    #assign(paste0("Meal_Event_in_", unit, "_interval_", interval), temp)
+    assign(paste0("Snack_Event_in_", unit, "_interval_", interval), temp)
     rm(temp)
 }
 
