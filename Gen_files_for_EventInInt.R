@@ -2,10 +2,12 @@
 library(plyr)
 #install.packages("microbenchmark")
 library(microbenchmark)
+library(lubridate)
 
 #### import data ####
 
-basedir <- ("~/Box/0-Bari_files/00_PennState/Bout_Project")
+#basedir <- ("~/Box/0-Bari_files/00_PennState/Bout_Project")
+basedir <- ("~/OneDrive - The Pennsylvania State University/Bari-files-Manual-Box-Transfer/00_PennState/Bout_Project")
 setwd(file.path(basedir,"Data/Intervals/"))
 
 myfiles = list.files(pattern="*.csv")
@@ -49,7 +51,6 @@ splitSnacks_eatf <- lapply(splitSnacks, subset, Annotation == "eat_f")
 splitMeals_eatf <- lapply(splitMeals_eatf, function(x) cbind(x, StartTime_seconds_adjusted = x$StartTime_seconds - first(x$StartTime_seconds)))
 
 splitSnacks_eatf <- lapply(splitSnacks_eatf, function(x) cbind(x, StartTime_seconds_adjusted = x$StartTime_seconds - first(x$StartTime_seconds)))
-
 
 
 ##### Write unique csv files containing BITES ONLY (eat_f) for each individual eating event #####
